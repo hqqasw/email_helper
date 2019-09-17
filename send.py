@@ -6,16 +6,18 @@ from email.header import Header
 from email.mime.multipart import MIMEMultipart
 from email.utils import formataddr
 from time import sleep
-
-mail_host = 'smtp.domain.com'  # smtp server of your email
-mail_host_port = 25
-mail_user = 'asia-night-2017@ijcvasia.org'  # username
-mail_pass = '****'  # password
-
-subject = 'IJCV Asia Night Invitation'
+import os.path as osp
 
 
-def send_one(title, name, email):
+mail_host = 'smtp-tls.ie.cuhk.edu.hk'  # smtp server of your email
+mail_host_port = 587
+mail_user = 'hq016@ie.cuhk.edu.hk'  # username
+mail_pass = '******'  # password
+
+subject = 'Invitation to Hong Kong Computer Vision Workshop on October 12, 2019'
+
+
+def send_one(title, name, email, bcc_list=[]):
     """
     param:
         title: title of the person you want to send
@@ -35,6 +37,8 @@ def send_one(title, name, email):
     msgRoot = MIMEMultipart('related')
     msgRoot['From'] = formataddr([sender_name, sender])
     msgRoot['To'] = formataddr([receiver_name, receiver])
+    if len(bcc_list) > 0:
+        msgRoot['Bcc'] = ','.join([formataddr([x[:x.find('@')], x]) for x in bcc_list])
 
     # subject
     msgRoot['Subject'] = Header(subject)
@@ -44,7 +48,8 @@ def send_one(title, name, email):
 
     # add text
     family_name = name.split()[-1].strip()
-    call = title + ' ' + family_name
+    given_name = name.split()[0].strip()
+    call = name
     with open('content.html', 'r', encoding='utf-8') as f:
         text = f.read()
     text = text.replace('****', call)  # replace **** with family name in content
@@ -56,8 +61,9 @@ def send_one(title, name, email):
     try:
         smtpObj = smtplib.SMTP()
         smtpObj.connect(mail_host, mail_host_port)
+        smtpObj.starttls()
         smtpObj.login(mail_user, mail_pass)
-        smtpObj.sendmail(sender, receiver, msgRoot.as_string())
+        smtpObj.sendmail(sender, [receiver,]+bcc_list, msgRoot.as_string())
         print(title + ' ' + name + ' success!')
     except smtplib.SMTPException:
         print(title + ' ' + name + ' fail!')
@@ -66,19 +72,22 @@ def send_one(title, name, email):
 
 
 if __name__ == '__main__':
+    # read bcc list if exist
+    if osp.isfile('bcc.txt'):
+        with open('bcc.txt', 'r', encoding='utf-8') as f:
+            lines = f.readlines()
+        bbc_list = [x.strip() for x in lines]
+    else:
+        bbc_list = []
     # read reveivers info
-    with open('test.txt', 'r', encoding='utf-8') as f:
+    with open('to.txt', 'r', encoding='utf-8') as f:
         lines = f.readlines()
     error_list = []
     for line in lines:
         # split title, name, email
-        words = line.strip().split('\t')
-        assert len(words) == 3
-        title = words[0].strip()
-        name = words[1].strip()
-        email = words[2].strip()
+        title, name, email = line.strip().split(',')
         # send an email
-        flag = send_one(title, name, email)
+        flag = send_one(title, name, email, bbc_list)
         if not flag:
             error_list.append(line)
         sleep(1)
